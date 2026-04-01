@@ -32,6 +32,9 @@ RUN chown -R pwuser:pwuser /app
 # Switch to non-root user
 USER pwuser
 
-# Set entrypoint and default arguments
-ENTRYPOINT ["uv", "run", "-m", "linkedin_mcp_server"]
-CMD []
+# Expose port for HTTP API mode
+EXPOSE 8000
+
+# Default: MCP server mode. Override with CMD ["python", "api_server.py"] for HTTP API mode.
+ENTRYPOINT ["uv", "run"]
+CMD ["-m", "linkedin_mcp_server"]
