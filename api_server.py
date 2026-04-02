@@ -262,7 +262,7 @@ async def start_login(req: LoginStartRequest, x_api_key: str = Header(default=""
         context = await browser.new_context(
             viewport={"width": 1280, "height": 800},
             user_agent="Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36",
-            locale="fr-FR",
+            locale="en-US",
         )
         page = await context.new_page()
         await page.goto("https://www.linkedin.com/login", wait_until="domcontentloaded")

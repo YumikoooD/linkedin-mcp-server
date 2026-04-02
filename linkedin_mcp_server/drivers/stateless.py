@@ -75,10 +75,12 @@ async def create_linkedin_context(
     browser = await _get_shared_browser()
 
     # Create isolated context (like incognito — cookies don't leak between users)
+    # locale MUST be en-US — the connection detection parses English button text
+    # ("Connect", "Follow", "Pending", "Accept")
     context: BrowserContext = await browser.new_context(
         viewport={"width": 1280, "height": 800},
         user_agent="Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36",
-        locale="fr-FR",
+        locale="en-US",
         timezone_id="Europe/Paris",
     )
 
