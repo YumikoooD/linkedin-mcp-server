@@ -1014,7 +1014,9 @@ class LinkedInExtractor:
 
         # Click the button (page is already loaded from scrape_person)
         click_scope = "[role='menu']" if via_more_menu else "main"
+        logger.info(f"Clicking '{button_text}' in scope '{click_scope}'")
         clicked = await self.click_button_by_text(button_text, scope=click_scope)
+        logger.info(f"Click result: {clicked}, page URL: {self._page.url}")
         if not clicked:
             return _connection_result(
                 url,
@@ -1022,14 +1024,20 @@ class LinkedInExtractor:
                 f"Could not find or click button '{button_text}'.",
             )
 
+        # Small wait after clicking Connect
+        import asyncio as _asyncio
+        await _asyncio.sleep(1)
+        logger.info(f"After Connect click — page URL: {self._page.url}")
+
         # ---- Handle dialog (structural selectors only) ----
         # Only wait for a dialog when sending a Connect request (Accept
         # typically completes immediately without a dialog).
         if state == "connectable":
             try:
-                await self._page.wait_for_selector(_DIALOG_SELECTOR)
+                await self._page.wait_for_selector(_DIALOG_SELECTOR, timeout=5000)
+                logger.info("Dialog appeared after Connect click")
             except PlaywrightTimeoutError:
-                logger.debug("No dialog appeared after clicking '%s'", button_text)
+                logger.info("No dialog appeared after clicking '%s'", button_text)
 
         note_sent = False
         if note and await self._dialog_is_open():
@@ -1061,12 +1069,37 @@ class LinkedInExtractor:
                 )
             # Wait for dialog to close
             try:
-                await self._page.wait_for_selector(_DIALOG_SELECTOR, state="hidden")
+                await self._page.wait_for_selector(_DIALOG_SELECTOR, state="hidden", timeout=5000)
             except PlaywrightTimeoutError:
                 logger.debug("Dialog did not close after clicking send")
+        else:
+            logger.info("No dialog open after Connect click — connection may have been sent directly")
 
-        # Read the current page text (already on the profile after the action)
-        updated_text = await self.get_page_text()
+        # Wait a moment for the page to settle
+        import asyncio as _asyncio
+        await _asyncio.sleep(2)
+
+        # Verify: check if the page is still valid
+        try:
+            current_url = self._page.url
+            if "chrome-error" in current_url or "about:blank" in current_url:
+                logger.warning(f"Page crashed after connect action: {current_url}")
+                # The connect might have worked before the crash
+                return _connection_result(
+                    url,
+                    "connected",
+                    "Connection request likely sent (page reloaded after action).",
+                    note_sent=note_sent,
+                )
+
+            # Re-read the profile to check if button changed to Pending
+            updated_text = await self.get_page_text()
+            if "Pending" in updated_text[:500]:
+                return _connection_result(
+                    url, "connected", "Connection request sent.", note_sent=note_sent, profile=updated_text
+                )
+        except Exception as e:
+            logger.warning(f"Post-connect verification error: {e}")
 
         status = "accepted" if state == "incoming_request" else "connected"
         return _connection_result(
@@ -1076,7 +1109,6 @@ class LinkedInExtractor:
             if status == "connected"
             else "Connection request accepted.",
             note_sent=note_sent,
-            profile=updated_text,
         )
 
     async def _extract_profile_urn(self) -> str | None:
