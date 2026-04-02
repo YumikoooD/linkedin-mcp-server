@@ -85,7 +85,15 @@ async def create_linkedin_context(
     )
 
     try:
-        # Inject LinkedIn auth cookies
+        page = await context.new_page()
+
+        # Step 1: Visit LinkedIn homepage to get base cookies (consent, lang, bcookie, etc.)
+        logger.info("Loading LinkedIn base cookies...")
+        await page.goto("https://www.linkedin.com/", wait_until="domcontentloaded", timeout=30000)
+        await asyncio.sleep(1)
+
+        # Step 2: Inject auth cookies on top of the base cookies
+        logger.info("Injecting auth cookies...")
         await context.add_cookies([
             {
                 "name": "li_at",
@@ -107,9 +115,7 @@ async def create_linkedin_context(
             },
         ])
 
-        page = await context.new_page()
-
-        # Quick auth check — navigate to feed
+        # Step 3: Navigate to feed to verify auth
         logger.info("Validating LinkedIn session...")
         await page.goto("https://www.linkedin.com/feed/", wait_until="domcontentloaded", timeout=30000)
 
