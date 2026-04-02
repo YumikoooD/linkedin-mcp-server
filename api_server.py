@@ -359,15 +359,23 @@ async def _monitor_login(session_id: str):
             url = page.url
 
             if any(x in url for x in ["/feed", "/mynetwork", "/messaging", "/in/"]):
+                # Guard: only process login success once
+                if session.get("status") == "logged_in":
+                    return
+
                 logger.info(f"Login successful for {session_id}!")
+                session["status"] = "logged_in"  # Set BEFORE upload so polls see it immediately
 
                 # Upload the persistent profile to Supabase Storage
-                from linkedin_mcp_server.drivers.stateless import upload_profile
-                await upload_profile(session_id, session["profile_dir"])
+                try:
+                    from linkedin_mcp_server.drivers.stateless import upload_profile
+                    await upload_profile(session_id, session["profile_dir"])
+                    logger.info(f"Profile uploaded for {session_id}")
+                except Exception as e:
+                    logger.error(f"Profile upload failed: {e}")
+                    session["status"] = "error"
 
-                session["status"] = "logged_in"
-
-                # Cleanup the browser (profile is already saved)
+                # Cleanup the browser
                 await _cleanup_login_session(session_id, keep_status=True)
                 return
         except Exception as e:
