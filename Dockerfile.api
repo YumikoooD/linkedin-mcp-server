@@ -1,6 +1,4 @@
-# LinkedIn API + Login Server for Railway
-# Includes: FastAPI, Patchright Chromium, Xvfb, x11vnc, noVNC, websockify
-
+# LinkedIn API Server for Railway — single port, no VNC
 FROM python:3.14-slim-bookworm@sha256:55e465cb7e50cd1d7217fcb5386aa87d0356ca2cd790872142ef68d9ef6812b4
 
 COPY --from=ghcr.io/astral-sh/uv:latest@sha256:c4f5de312ee66d46810635ffc5df34a1973ba753e7241ce3a08ef979ddd7bea5 /uv /uvx /bin/
@@ -8,25 +6,15 @@ COPY --from=ghcr.io/astral-sh/uv:latest@sha256:c4f5de312ee66d46810635ffc5df34a19
 WORKDIR /app
 COPY . /app
 
-# Install system deps: git + VNC stack + Chromium deps
 RUN apt-get update && \
-    apt-get install -y --no-install-recommends \
-    git \
-    xvfb \
-    x11vnc \
-    novnc \
-    websockify \
-    chromium \
-    && rm -rf /var/lib/apt/lists/*
+    apt-get install -y --no-install-recommends git && \
+    rm -rf /var/lib/apt/lists/*
 
-# Install Python deps + Patchright browser
 ENV PLAYWRIGHT_BROWSERS_PATH=/opt/patchright
 RUN uv sync --frozen && \
     uv run patchright install-deps chromium && \
-    uv run patchright install chromium && \
-    pip install aiohttp
+    uv run patchright install chromium
 
-EXPOSE 8000 8001 6080
+EXPOSE 8000
 
-# Start both API server and login server
-CMD ["sh", "-c", "uv run python api_server.py & uv run python login_server.py & wait"]
+CMD ["uv", "run", "python", "api_server.py"]
