@@ -480,7 +480,14 @@ class LinkedInExtractor:
             await target.click(timeout=timeout)
             return True
         except Exception:
-            logger.debug("Click failed for button '%s'", text, exc_info=True)
+            logger.debug("Normal click failed for '%s', trying force click", text)
+        # Fallback: force click bypasses viewport visibility checks
+        # (LinkedIn sticky navbar can block elements after scroll)
+        try:
+            await target.click(timeout=timeout, force=True)
+            return True
+        except Exception:
+            logger.debug("Force click also failed for button '%s'", text, exc_info=True)
             return False
 
     async def _dialog_is_open(self, *, timeout: int = 1000) -> bool:
@@ -540,7 +547,12 @@ class LinkedInExtractor:
         try:
             if await more_btn.count() == 0:
                 return False
-            await more_btn.first.click()
+            await more_btn.first.scroll_into_view_if_needed(timeout=5000)
+            try:
+                await more_btn.first.click(timeout=5000)
+            except Exception:
+                # Sticky navbar may block — use force click
+                await more_btn.first.click(timeout=5000, force=True)
         except Exception:
             logger.debug("Could not click More button", exc_info=True)
             return False
