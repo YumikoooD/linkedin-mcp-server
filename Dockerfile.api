@@ -3,28 +3,18 @@ FROM python:3.14-slim-bookworm@sha256:55e465cb7e50cd1d7217fcb5386aa87d0356ca2cd7
 
 COPY --from=ghcr.io/astral-sh/uv:latest@sha256:c4f5de312ee66d46810635ffc5df34a1973ba753e7241ce3a08ef979ddd7bea5 /uv /uvx /bin/
 
-RUN useradd -m -s /bin/bash pwuser
-
 WORKDIR /app
+COPY . /app
 
-# Install system deps as root (git + Chromium deps)
-RUN apt-get update && apt-get install -y --no-install-recommends git && rm -rf /var/lib/apt/lists/*
+# Install system deps + Patchright Chromium
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends git && \
+    rm -rf /var/lib/apt/lists/*
 
-# Copy project files
-COPY --chown=pwuser:pwuser . /app
-
-# Install Patchright browser deps as root (needs apt access)
 ENV PLAYWRIGHT_BROWSERS_PATH=/opt/patchright
 RUN uv sync --frozen && \
     uv run patchright install-deps chromium && \
-    uv run patchright install chromium && \
-    chmod -R 755 /opt/patchright
-
-# Fix ALL permissions for pwuser
-RUN chown -R pwuser:pwuser /app && \
-    chmod -R 755 /app/.venv
-
-USER pwuser
+    uv run patchright install chromium
 
 EXPOSE 8000
 
