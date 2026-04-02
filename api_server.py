@@ -159,11 +159,50 @@ async def connect_with_person(req: ConnectRequest, x_api_key: str = Header(defau
     verify_api_key(x_api_key)
     from linkedin_mcp_server.drivers.stateless import create_linkedin_context
     try:
-        async with create_linkedin_context(req.li_at, req.jsessionid) as (extractor, _):
+        async with create_linkedin_context(req.li_at, req.jsessionid) as (extractor, page):
+            # Debug: log what we see on the profile page
+            logger.info(f"Navigating to profile: {req.username}")
             result = await extractor.connect_with_person(req.username, note=req.note)
+            logger.info(f"Connect result for {req.username}: {json.dumps(result, default=str)[:500]}")
             return {"success": True, "data": result}
     except Exception as e:
-        logger.error(f"Connect error: {e}")
+        logger.error(f"Connect error: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.post("/api/debug-profile")
+async def debug_profile(req: ConnectRequest, x_api_key: str = Header(default="")):
+    """Debug: see what the browser sees on a LinkedIn profile page."""
+    verify_api_key(x_api_key)
+    from linkedin_mcp_server.drivers.stateless import create_linkedin_context
+    from linkedin_mcp_server.scraping.connection import detect_connection_state
+    try:
+        async with create_linkedin_context(req.li_at, req.jsessionid) as (extractor, page):
+            profile = await extractor.scrape_person(req.username, {"main_profile"})
+            page_text = profile.get("sections", {}).get("main_profile", "")
+            state = detect_connection_state(page_text)
+
+            # Get the first 500 chars of the action area
+            action_area = page_text[:500] if page_text else "EMPTY"
+
+            # Take a screenshot
+            screenshot = await page.screenshot(type="jpeg", quality=50)
+            b64 = base64.b64encode(screenshot).decode("ascii")
+
+            # Check for buttons
+            buttons = await page.locator("main button").all_text_contents()
+
+            return {
+                "success": True,
+                "username": req.username,
+                "detected_state": state,
+                "action_area_preview": action_area,
+                "buttons_found": buttons[:20],
+                "page_url": page.url,
+                "screenshot_b64": b64[:100] + "...",  # just confirm it works
+            }
+    except Exception as e:
+        logger.error(f"Debug error: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail=str(e))
 
 
