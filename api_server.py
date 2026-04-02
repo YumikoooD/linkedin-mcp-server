@@ -322,6 +322,14 @@ async def login_websocket(ws: WebSocket, session_id: str):
     async def stream_screenshots():
         while streaming and session_id in _login_sessions:
             try:
+                # Check if login succeeded
+                if session.get("status") == "logged_in":
+                    try:
+                        await ws.send_json({"type": "login_success", "message": "LinkedIn connected!"})
+                    except Exception:
+                        pass
+                    break
+
                 screenshot = await page.screenshot(type="jpeg", quality=60)
                 b64 = base64.b64encode(screenshot).decode("ascii")
                 await ws.send_json({"type": "screenshot", "data": b64})
