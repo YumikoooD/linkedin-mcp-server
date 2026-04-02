@@ -160,10 +160,23 @@ async def connect_with_person(req: ConnectRequest, x_api_key: str = Header(defau
     from linkedin_mcp_server.drivers.stateless import create_linkedin_context
     try:
         async with create_linkedin_context(req.li_at, req.jsessionid) as (extractor, page):
-            # Debug: log what we see on the profile page
             logger.info(f"Navigating to profile: {req.username}")
             result = await extractor.connect_with_person(req.username, note=req.note)
             logger.info(f"Connect result for {req.username}: {json.dumps(result, default=str)[:500]}")
+
+            # Debug: take screenshot after connect attempt
+            try:
+                import base64 as b64mod
+                screenshot = await page.screenshot(type="jpeg", quality=50)
+                screenshot_b64 = b64mod.b64encode(screenshot).decode("ascii")
+                result["debug_screenshot"] = screenshot_b64
+                logger.info(f"Post-connect page URL: {page.url}")
+                # Log visible buttons on the page
+                buttons = await page.locator("main button").all_text_contents()
+                logger.info(f"Visible buttons after connect: {buttons[:10]}")
+            except Exception as e:
+                logger.warning(f"Debug screenshot failed: {e}")
+
             return {"success": True, "data": result}
     except Exception as e:
         logger.error(f"Connect error: {e}", exc_info=True)
