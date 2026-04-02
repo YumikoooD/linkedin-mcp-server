@@ -990,12 +990,18 @@ class LinkedInExtractor:
                 )
 
         if state == "unavailable":
-            return _connection_result(
-                url,
-                "connect_unavailable",
-                "LinkedIn did not expose a usable Connect action for this profile.",
-                profile=page_text,
-            )
+            # Last resort: try the More menu — Connect is often hidden there
+            logger.info("State unavailable for %s, trying More menu as fallback", username)
+            if await self._open_more_menu():
+                state = "connectable"
+                via_more_menu = True
+            else:
+                return _connection_result(
+                    url,
+                    "connect_unavailable",
+                    "LinkedIn did not expose a usable Connect action for this profile.",
+                    profile=page_text,
+                )
 
         # state is "connectable" or "incoming_request"
         button_text = STATE_BUTTON_MAP.get(state)
