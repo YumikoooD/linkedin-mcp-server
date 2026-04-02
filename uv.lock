@@ -828,6 +828,7 @@ source = { editable = "." }
 dependencies = [
     { name = "fastapi" },
     { name = "fastmcp" },
+    { name = "httpx" },
     { name = "inquirer" },
     { name = "patchright" },
     { name = "python-dotenv" },
@@ -850,6 +851,7 @@ dev = [
 requires-dist = [
     { name = "fastapi", specifier = ">=0.115.0" },
     { name = "fastmcp", specifier = ">=3.0.0" },
+    { name = "httpx", specifier = ">=0.28.0" },
     { name = "inquirer", specifier = ">=3.4.0" },
     { name = "patchright", specifier = ">=1.40.0" },
     { name = "python-dotenv", specifier = ">=1.1.1" },
