@@ -1047,12 +1047,9 @@ class LinkedInExtractor:
             if filled:
                 note_sent = True
             else:
-                await self._dismiss_dialog()
-                return _connection_result(
-                    url,
-                    "note_not_supported",
-                    "LinkedIn did not offer note entry for this connection flow.",
-                )
+                # Note not supported — proceed without note instead of failing
+                logger.info("Note entry not available, sending connection without note")
+                note_sent = False
 
         # Click the primary (Send) button if a dialog is still open
         if await self._dialog_is_open():
