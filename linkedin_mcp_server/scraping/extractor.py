@@ -543,16 +543,42 @@ class LinkedInExtractor:
         and ``[role="menu"]`` to detect the opened menu (structural).
         Returns True if the menu opened and contains a Connect option.
         """
-        more_btn = self._page.locator("main button[aria-label*='More']")
+        # Try multiple selectors for the More button (varies by locale and layout)
+        more_selectors = [
+            "main button[aria-label*='More']",
+            "main button[aria-label*='more']",
+            "main button[aria-label*='Plus']",           # French: "Plus d'actions"
+            "main button[aria-label*='plus']",
+            "main button[aria-label*='actions']",
+            "main section button[aria-label*='More']",
+            "main .pvs-profile-actions button:last-child",  # Structural: last action button
+        ]
+        more_btn = None
+        for selector in more_selectors:
+            locator = self._page.locator(selector)
+            count = await locator.count()
+            if count > 0:
+                more_btn = locator.first
+                logger.info(f"Found More button with selector: {selector} ({count} matches)")
+                break
+
+        if not more_btn:
+            # Last resort: find button containing "..." or "•••" text
+            ellipsis_btn = self._page.locator("main button").filter(has_text=re.compile(r"^(More|Plus|…|⋯|\.\.\.)$"))
+            if await ellipsis_btn.count() > 0:
+                more_btn = ellipsis_btn.first
+                logger.info("Found More button via text matching")
+
+        if not more_btn:
+            logger.info("No More button found with any selector")
+            return False
+
         try:
-            if await more_btn.count() == 0:
-                return False
-            await more_btn.first.scroll_into_view_if_needed(timeout=5000)
+            await more_btn.scroll_into_view_if_needed(timeout=5000)
             try:
-                await more_btn.first.click(timeout=5000)
+                await more_btn.click(timeout=5000)
             except Exception:
-                # Sticky navbar may block — use force click
-                await more_btn.first.click(timeout=5000, force=True)
+                await more_btn.click(timeout=5000, force=True)
         except Exception:
             logger.debug("Could not click More button", exc_info=True)
             return False
@@ -972,6 +998,19 @@ class LinkedInExtractor:
         # Detect state from the scraped text
         state = detect_connection_state(page_text)
         logger.info("Connection state for %s: %s", username, state)
+
+        # Debug: log visible buttons and their aria-labels
+        try:
+            buttons_info = await self._page.evaluate("""() => {
+                const btns = document.querySelectorAll('main button');
+                return Array.from(btns).slice(0, 15).map(b => ({
+                    text: b.innerText?.trim().substring(0, 30),
+                    ariaLabel: b.getAttribute('aria-label')?.substring(0, 50),
+                }));
+            }""")
+            logger.info(f"Profile buttons for {username}: {buttons_info}")
+        except Exception:
+            pass
 
         if state == "already_connected":
             return _connection_result(
